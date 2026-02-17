@@ -1,0 +1,7 @@
+# Test output (generated per-project, not part of the plugin)
+slh-reports/
+
+# OS
+.DS_Store
+Thumbs.db
+.claude/settings.local.json

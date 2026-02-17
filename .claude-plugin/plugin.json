@@ -1,0 +1,11 @@
+{
+  "name": "slh",
+  "version": "2.0.0",
+  "description": "Mission-based web app evaluation. Explores apps as a target user and produces QA reports with classified findings.",
+  "author": {
+    "name": "Glen Maisey"
+  },
+  "repository": "https://github.com/glendigity/santas-little-helper",
+  "license": "MIT",
+  "keywords": ["testing", "qa", "ui", "ux", "visual", "responsive", "evaluation", "usability", "playwright", "screenshots", "regression", "missions"]
+}

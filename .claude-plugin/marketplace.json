@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "glendigity",
+  "description": "Santa's Little Helper (SLH) — mission-based web app evaluation for Claude Code",
+  "owner": {
+    "name": "Glen Maisey"
+  },
+  "plugins": [
+    {
+      "name": "slh",
+      "description": "Evaluates web apps as a target user, runs mission-based testing across viewports, and produces narrative QA reports with classified findings.",
+      "category": "testing",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/glendigity/santas-little-helper.git"
+      },
+      "homepage": "https://github.com/glendigity/santas-little-helper"
+    }
+  ]
+}
