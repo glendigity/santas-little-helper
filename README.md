@@ -76,7 +76,9 @@ SLH uses `playwright-cli` because it supports named sessions, which lets mission
 - Start with `/slh-profile` — good missions are concrete goals ("Find out who reports to you"), not page names ("View the org chart")
 - Run `/slh-test` with a subset of missions first to calibrate
 - Give feedback after each report — the knowledge base reduces false positives over time
-- Add `slh-reports/credentials.json` to your `.gitignore`
+- Commit `.slh/` to git — profiles, knowledge, and orientation are meant to be shared with your team
+- Add `slh-reports/` and `.playwright-cli/` to your `.gitignore` — those are generated output
+- To change where reports go, create `.slh/config.yml` with `reports_dir: ./your-path`
 
 ## Acknowledgements
 

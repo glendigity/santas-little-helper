@@ -4,19 +4,20 @@ Per-app knowledge files store things you've learned from the user about how a sp
 
 ## File Location
 
-Knowledge files are stored alongside test reports:
+Knowledge files are stored in the committed `.slh/` directory:
 
 ```
-slh-reports/
-├── app-knowledge/
+.slh/
+├── profiles/
+│   ├── app.example.com.md
+│   └── localhost-5173.md
+├── knowledge/
 │   ├── app.example.com.md
 │   ├── localhost-5173.md
 │   └── staging.example.com.md
-├── app-profile/
-│   ├── app.example.com.md
-│   └── localhost-5173.md
-├── {run-directories}/
-└── credentials.json
+├── orientation/
+│   └── {hostname}--{persona-slug}.md
+└── config.yml
 ```
 
 File is named by the app's hostname (with colons replaced by hyphens): `{hostname}.md`

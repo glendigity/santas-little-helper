@@ -3,6 +3,7 @@ description: "App evaluation methodology for web applications. Explore apps as a
 globs:
   - "**/*.spec.ts"
   - "**/*.test.ts"
+  - "**/.slh/**"
   - "**/slh-reports/**"
 ---
 

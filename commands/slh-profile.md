@@ -9,9 +9,28 @@ You are helping the user define **who** uses their app and **what those users ne
 
 An app can have **multiple personas** — different user types who see the app differently. Each persona has its own description and mission list. During `/slh-test`, the user picks which persona to test as.
 
+## Phase 0: Check .gitignore
+
+Check if a `.gitignore` file exists in the project root. If it does, read it and check whether it already contains `slh-reports/`. If it doesn't contain `slh-reports/`, ask the user:
+
+> "Want me to add the recommended `.gitignore` entries for SLH? This keeps generated test output out of git while letting `.slh/` (profiles, knowledge, orientation) stay committed."
+
+If they say yes, append to `.gitignore`:
+
+```
+# SLH generated output
+slh-reports/
+.playwright-cli/
+.claude/skills/playwright-cli/
+```
+
+If no `.gitignore` exists, create one with those entries.
+
+If `slh-reports/` is already present, skip silently.
+
 ## Phase 1: Detect Existing Profiles
 
-Check if any profile files exist at `./slh-reports/app-profile/`. List any `.md` files found there.
+Check if any profile files exist at `./.slh/profiles/`. List any `.md` files found there.
 
 If a URL was provided as an argument (`$ARGUMENTS`), extract the hostname and check if a profile already exists for it.
 
@@ -117,13 +136,13 @@ Multiple edits are fine in one conversation. Show the final state before saving.
 
 ## Phase 5: Save Profile
 
-Write the profile to `./slh-reports/app-profile/{hostname}.md`.
+Write the profile to `./.slh/profiles/{hostname}.md`.
 
 The hostname is derived from the URL: replace `:` with `-`, `/` with nothing, keep dots and hyphens. For example:
 - `http://localhost:5173` → `localhost-5173`
 - `https://app.example.com` → `app.example.com`
 
-Create the `./slh-reports/app-profile/` directory if it doesn't exist.
+Create the `./.slh/profiles/` directory if it doesn't exist.
 
 ### Profile File Format
 

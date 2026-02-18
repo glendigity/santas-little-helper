@@ -28,7 +28,7 @@ You are the **leader agent** coordinating an app evaluation. You are a **lightwe
 Leader Agent (you) — lightweight coordinator
 ├── Phase 1: Setup — collect inputs, load profile
 ├── Phase 2: Login — authenticate, save auth state
-├── Phase 3: Orient — quick nav discovery, write orientation file
+├── Phase 3: Orient — check & refine nav structure (.slh/orientation/)
 ├── Phase 4: Delegate Missions — spawn ALL agents in parallel (each gets own browser session)
 │   ├── Mission Agent 1 (-s=mission-1) → writes mission-1-results.md
 │   ├── Mission Agent 2 (-s=mission-2) → writes mission-2-results.md
@@ -103,9 +103,15 @@ Parse any arguments provided: `$ARGUMENTS`
 
 The format is `[url] [username] [password]`. Any missing values must be collected.
 
-### 1a. Load App Profile (Required)
+### 1a. Load Config
 
-Use the Glob tool with pattern `slh-reports/app-profile/*.md` to find profile files. If no files match, tell the user:
+Check if `./.slh/config.yml` exists. If it does, read it and extract the `reports_dir` value. If the file doesn't exist or `reports_dir` is not set, default to `./slh-reports`.
+
+Store this as the **reports directory** — use it for all output paths in subsequent phases.
+
+### 1b. Load App Profile (Required)
+
+Use the Glob tool with pattern `.slh/profiles/*.md` to find profile files. If no files match, tell the user:
 
 > "No app profile found. Run `/slh-profile` first to define the target user and missions."
 
@@ -115,17 +121,17 @@ If multiple profiles exist and a URL argument was provided, match by hostname in
 
 Read the matched profile file with the Read tool. Display all personas and their mission lists.
 
-### 1b. Select Persona
+### 1c. Select Persona
 
 If the profile has multiple personas, use `AskUserQuestion` to let the user pick which persona to test as this session. Show each persona's name and a one-line summary. Only one persona per session — testing as a specific user type keeps the evaluation focused and the narrative coherent.
 
 Display the selected persona's full description and mission list.
 
-### 1c. Select Missions
+### 1d. Select Missions
 
 Use `AskUserQuestion` with multiSelect to let the user pick which of this persona's missions to run this session. List all missions from the selected persona. Offer an "All missions" option.
 
-### 1d. Select Test Depth
+### 1e. Select Test Depth
 
 Use `AskUserQuestion` to ask what kind of test to run:
 
@@ -144,14 +150,14 @@ Store the selected depth — it controls what mission agents do, whether viewpor
 | Curiosity expansion (Phase 5a) | No | No | Yes |
 | Cross-page consistency (Phase 5b) | No | No | Yes |
 
-### 1e. Collect Remaining Inputs
+### 1f. Collect Remaining Inputs
 
-Check if saved credentials exist at `./slh-reports/credentials.json`. If found, pre-fill the URL and credentials. Tell the user: "Found saved credentials for {url}."
+Check if saved credentials exist at `{reports_dir}/credentials.json`. If found, pre-fill the URL and credentials. Tell the user: "Found saved credentials for {url}."
 
 Use `AskUserQuestion` to collect any missing inputs in a single call:
 
 1. **App URL** — if not provided as argument or pre-filled from credentials/profile
-2. **Credentials** — username and password if not provided. Offer "No login required." Tell the user: "Credentials saved to `slh-reports/credentials.json` (gitignored)."
+2. **Credentials** — username and password if not provided. Offer "No login required." Tell the user: "Credentials saved to `{reports_dir}/credentials.json` (gitignored)."
 3. **Viewport sizes** — **only ask if test depth is "Missions + viewports" or "Full evaluation"**. For "Missions only", default to Desktop (1440x900) and skip this question. multiSelect:
    - Mobile (375x812) — iPhone standard
    - Tablet (768x1024) — iPad portrait
@@ -159,27 +165,27 @@ Use `AskUserQuestion` to collect any missing inputs in a single call:
    - Large Desktop (1920x1080) — Full HD
    - All viewports
 
-### 1f. Set Up Output Directory
+### 1g. Set Up Output Directory
 
 Extract hostname from URL (replace `:` with `-`, strip protocol/paths).
 
-Build run directory: `./slh-reports/{YYYY-MM-DD_HH-MM}_{hostname}/`
+Build run directory: `{reports_dir}/{YYYY-MM-DD_HH-MM}_{hostname}/`
 
-**IMPORTANT**: Resolve the run directory to an **absolute path** (not relative like `./slh-reports/...`). Mission agents run in subprocesses that may resolve relative paths differently. Always pass absolute paths when spawning agents.
+**IMPORTANT**: Resolve the run directory to an **absolute path** (not relative). Mission agents run in subprocesses that may resolve relative paths differently. Always pass absolute paths when spawning agents.
 
-### 1g. Load App Knowledge
+### 1h. Load App Knowledge
 
-Use the Glob tool with pattern `slh-reports/app-knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `slh-reports/app-knowledge/*.md` and check if any filename contains the hostname. If found:
+Use the Glob tool with pattern `.slh/knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `.slh/knowledge/*.md` and check if any filename contains the hostname. If found:
 1. Read the file with the Read tool
 2. Tell the user: "Loaded knowledge guide for {hostname} — {n} entries"
 3. Store the content — it will be passed to each mission agent
 
-### 1h. Create All Directories and Files Upfront
+### 1i. Create All Directories and Files Upfront
 
 Do ALL file creation in a **single Bash command** so the user only approves once. This lets the test run autonomously from here on:
 
 ```bash
-mkdir -p {run-directory}/screenshots && echo '{"url":"{url}","username":"{username}","password":"{password}"}' > ./slh-reports/credentials.json
+mkdir -p {run-directory}/screenshots .slh/orientation .slh/knowledge && echo '{"url":"{url}","username":"{username}","password":"{password}"}' > {reports_dir}/credentials.json
 ```
 
 Then immediately write the orientation file (Phase 3) and the app knowledge reference — get all the Write approvals done before starting browser work.
@@ -204,24 +210,46 @@ If login fails, report the failure and ask the user for guidance.
 
 The saved `auth.json` contains cookies and storage state. Each mission agent will load this file into its own independent browser session so it starts already authenticated.
 
-## Phase 3: Orient (Quick)
+## Phase 3: Orient (Check & Refine)
 
-Map the navigation structure so mission agents know what's available. **Keep this brief — don't analyze pages, don't take extra screenshots, don't reason about content.** That's the mission agents' job.
+Build the persona slug from the persona name: lowercase, replace spaces with `-`, strip special characters (e.g., "Ops Lead" → `ops-lead`).
 
-Open a temporary browser session for orientation:
-1. `playwright-cli -s=orient open {url}`
+Check if an existing orientation file exists at `.slh/orientation/{hostname}--{persona-slug}.md`.
+
+### If orientation exists — refine it
+
+1. Read the existing orientation file
+2. Open a temporary browser session: `playwright-cli -s=orient open {url}`
+3. `playwright-cli -s=orient state-load {absolute-run-directory}/auth.json` (skip if no login)
+4. `playwright-cli -s=orient snapshot` — read the current page structure
+5. Compare the current nav structure against what's in the file — any new sections? Anything removed? Labels changed?
+6. `playwright-cli -s=orient close`
+7. If changes were found, update `.slh/orientation/{hostname}--{persona-slug}.md` with the current structure
+8. Tell the user what changed (or "Navigation structure unchanged since last run")
+
+### If no orientation exists — full discovery
+
+1. Open a temporary browser session: `playwright-cli -s=orient open {url}`
 2. `playwright-cli -s=orient state-load {absolute-run-directory}/auth.json` (skip if no login)
 3. `playwright-cli -s=orient snapshot` — read the page structure
 4. Identify the navigation structure — sidebar links, header menus, tabs, breadcrumbs
 5. Build an ordered list of discoverable pages/routes with their labels
-6. `playwright-cli -s=orient close` — close the orientation session
+6. `playwright-cli -s=orient close`
+7. Write the orientation file to `.slh/orientation/{hostname}--{persona-slug}.md`
 
-**Save orientation data** for mission agents. Write `{run-directory}/orientation.md` with:
-- The full navigation structure (all discovered pages/routes with labels)
-- The persona description (from the profile)
-- The app knowledge content (if loaded, paste it in full)
+### Orientation file format
 
-This write was pre-approved during Phase 1h setup. No additional permission prompt needed.
+The orientation file stores **only the nav structure** — persona and knowledge are passed separately to mission agents.
+
+```markdown
+# Orientation: {hostname} — {persona name}
+
+> Last updated: {YYYY-MM-DD}
+
+## Navigation Structure
+
+{Ordered list of discoverable pages/routes with labels}
+```
 
 Tell the user what pages you discovered and which missions you're about to delegate.
 
@@ -519,7 +547,7 @@ After presenting the report summary, ask the user:
 
 When the user provides feedback:
 
-1. Determine the knowledge file path: `./slh-reports/app-knowledge/{hostname}.md`
+1. Determine the knowledge file path: `./.slh/knowledge/{hostname}.md`
 2. If the file doesn't exist, create it using the structure from the app-knowledge reference
 3. Add learnings to the appropriate section
 4. Update the "Last updated" date and increment session count

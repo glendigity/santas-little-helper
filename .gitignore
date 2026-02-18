@@ -1,5 +1,8 @@
-# Test output (generated per-project, not part of the plugin)
+# Generated test output (per-project, gitignored)
 slh-reports/
+
+# Note: .slh/ is NOT gitignored — it contains profiles, knowledge,
+# and orientation that should be committed and shared with the team.
 
 # OS
 .DS_Store

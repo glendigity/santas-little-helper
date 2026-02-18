@@ -70,21 +70,25 @@ Parse any arguments provided: `$ARGUMENTS`
 
 The format is `[url] [username] [password]`. Any missing values must be collected.
 
-### 1a. Find Previous Reports
+### 1a. Load Config
 
-Scan `./slh-reports/` for run directories (format: `{YYYY-MM-DD_HH-MM}_{hostname}/`). List any that contain a `report.md` file, sorted newest first.
+Check if `./.slh/config.yml` exists. If it does, read it and extract the `reports_dir` value. If the file doesn't exist or `reports_dir` is not set, default to `./slh-reports`.
 
-Also check for saved credentials at `./slh-reports/credentials.json`. If found, pre-fill the URL and credentials.
+### 1b. Find Previous Reports
+
+Scan `{reports_dir}/` for run directories (format: `{YYYY-MM-DD_HH-MM}_{hostname}/`). List any that contain a `report.md` file, sorted newest first.
+
+Also check for saved credentials at `{reports_dir}/credentials.json`. If found, pre-fill the URL and credentials.
 
 Present the user with the available reports using `AskUserQuestion`:
 
 1. **Report to re-test** — list the most recent 4 run directories with their date and hostname. Show the finding/issue count from each report's summary if possible.
 2. **App URL** — pre-fill from saved credentials or the report header if available, but let the user override.
-3. **Credentials** — pre-fill from saved credentials if available. Otherwise collect username and password. Offer "No login required." If collecting new credentials, tell the user: "Credentials saved to `slh-reports/credentials.json` (gitignored)."
+3. **Credentials** — pre-fill from saved credentials if available. Otherwise collect username and password. Offer "No login required." If collecting new credentials, tell the user: "Credentials saved to `{reports_dir}/credentials.json` (gitignored)."
 
-If new credentials were provided, update `./slh-reports/credentials.json`.
+If new credentials were provided, update `{reports_dir}/credentials.json`.
 
-### 1b. Parse the Report
+### 1c. Parse the Report
 
 Read the selected `report.md`. Detect the report format:
 
@@ -104,15 +108,15 @@ Read the selected `report.md`. Detect the report format:
 
 Tell the user: "Found {n} findings to re-test from {date} report."
 
-### 1c. Set Up Output Directory
+### 1d. Set Up Output Directory
 
-Create a new run directory: `./slh-reports/{YYYY-MM-DD_HH-MM}_{hostname}/`
+Create a new run directory: `{reports_dir}/{YYYY-MM-DD_HH-MM}_{hostname}/`
 
 Create a `screenshots/` subdirectory.
 
-### 1d. Load App Knowledge
+### 1e. Load App Knowledge
 
-Use the Glob tool with pattern `slh-reports/app-knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `slh-reports/app-knowledge/*.md` and check filenames. If found, read it with the Read tool.
+Use the Glob tool with pattern `.slh/knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `.slh/knowledge/*.md` and check filenames. If found, read it with the Read tool.
 
 ## Phase 2: Login
 
