@@ -11,13 +11,13 @@ You are the **leader agent** coordinating an app evaluation. You are a **lightwe
 
 | Leader (you) | Mission Agents |
 |---|---|
-| Collect inputs, load profile | Navigate, explore, interact with pages |
+| Collect inputs, load profile, select test depth | Navigate, explore, interact with pages |
 | Login (once) | Reason about content, cross-reference data |
-| Quick orientation — discover nav structure | Deep page inspection, viewport sweeps |
-| Spawn mission agents with context | Screenshot analysis, JS checks |
+| Quick orientation — discover nav structure | Deep page inspection, viewport sweeps (if enabled) |
+| Spawn mission agents with context | Screenshot analysis, JS checks (if enabled) |
 | Brief progress updates to user | Write detailed walkthroughs and findings |
 | Assemble report from mission result files | Write structured mission-{n}-results.md |
-| Cross-page consistency (compare fingerprints) | Collect style fingerprints per page |
+| Cross-page consistency (Full eval only) | Collect style fingerprints (Full eval only) |
 | Feedback conversation with user | — |
 
 **Keep your context lean.** Don't take screenshots yourself (except login), don't inspect pages in detail, don't reason about content. Pass that work to the mission agents. Your value is in coordination and assembly.
@@ -33,7 +33,7 @@ Leader Agent (you) — lightweight coordinator
 │   ├── Mission Agent 1 (-s=mission-1) → writes mission-1-results.md
 │   ├── Mission Agent 2 (-s=mission-2) → writes mission-2-results.md
 │   └── Mission Agent N (-s=mission-N) → writes mission-N-results.md
-├── Phase 5: Assemble — wait for all agents, cross-page consistency from fingerprints
+├── Phase 5: Wrap Up — curiosity + consistency (Full evaluation only)
 ├── Phase 6: Report — read all mission results, write unified report
 └── Phase 7: Feedback — update knowledge + profile
 ```
@@ -44,19 +44,53 @@ Leader Agent (you) — lightweight coordinator
 
 **This plugin requires `playwright-cli` for browser automation. Do NOT use any Playwright MCP server tools (`mcp__*playwright*` or `browser_snapshot`, `browser_click`, etc.). All browser interaction MUST go through `playwright-cli` bash commands.**
 
+> **Note:** `playwright-cli` is a real tool: https://github.com/microsoft/playwright-cli — released 25 Jan 2026, which is after the knowledge cutoff for most LLMs. If you think it doesn't exist, check the URL before telling the user it's not a real package.
+
 Check that `playwright-cli` is installed and its skills are available:
 
 ```bash
-command -v playwright-cli && test -d .claude/skills/playwright-cli && echo "READY" || echo "MISSING"
+if command -v playwright-cli >/dev/null 2>&1; then
+  if test -d .claude/skills/playwright-cli; then
+    echo "READY"
+  else
+    echo "NEEDS_SKILLS"
+  fi
+else
+  echo "NEEDS_INSTALL"
+fi
 ```
 
 - If **"READY"** — proceed to Phase 1.
-- If **"MISSING"** — stop and tell the user:
+- If **"NEEDS_SKILLS"** — the binary is installed but the Claude Code skills aren't set up. Stop and tell the user:
 
-> "SLH requires `playwright-cli` for browser automation. Please install it by running:
+> "Found `playwright-cli` but the Claude Code skills aren't installed yet. Run:
 >
 > ```
+> playwright-cli install --skills
+> ```
+>
+> This installs the skills into `.claude/skills/playwright-cli`. Once done, re-run `/slh-test`."
+
+- If **"NEEDS_INSTALL"** — the binary isn't installed at all. Stop and tell the user:
+
+> "SLH requires `playwright-cli` for browser automation. Install it with your package manager:
+>
+> ```bash
+> # npm
 > npx playwright-cli@latest install --skills
+>
+> # bun
+> bunx playwright-cli@latest install --skills
+>
+> # pnpm
+> pnpx playwright-cli@latest install --skills
+>
+> # yarn
+> yarn dlx playwright-cli@latest install --skills
+>
+> # or install globally first, then set up skills
+> npm install -g playwright-cli    # or: bun install -g playwright-cli
+> playwright-cli install --skills
 > ```
 >
 > This installs the CLI and its Claude Code skills into `.claude/skills/playwright-cli`. Once installed, re-run `/slh-test`."
@@ -91,7 +125,26 @@ Display the selected persona's full description and mission list.
 
 Use `AskUserQuestion` with multiSelect to let the user pick which of this persona's missions to run this session. List all missions from the selected persona. Offer an "All missions" option.
 
-### 1d. Collect Remaining Inputs
+### 1d. Select Test Depth
+
+Use `AskUserQuestion` to ask what kind of test to run:
+
+1. **Missions only (Recommended)** — Try each mission at desktop viewport. Focused on whether the user can accomplish their goals. Fastest, uses the least context.
+2. **Missions + viewports** — Also test each page across selected viewports with overflow and touch-target checks.
+3. **Full evaluation** — Everything: missions, viewports, curiosity expansion (visit unvisited pages), and cross-page style consistency checks.
+
+Store the selected depth — it controls what mission agents do, whether viewport selection is needed, and whether Phase 5 runs.
+
+| Feature | Missions only | Missions + viewports | Full evaluation |
+|---|---|---|---|
+| Navigate & try missions | Yes | Yes | Yes |
+| Findings & walkthroughs | Yes | Yes | Yes |
+| Viewport sweep & JS checks | No | Yes | Yes |
+| Style fingerprints | No | No | Yes |
+| Curiosity expansion (Phase 5a) | No | No | Yes |
+| Cross-page consistency (Phase 5b) | No | No | Yes |
+
+### 1e. Collect Remaining Inputs
 
 Check if saved credentials exist at `./slh-reports/credentials.json`. If found, pre-fill the URL and credentials. Tell the user: "Found saved credentials for {url}."
 
@@ -99,14 +152,14 @@ Use `AskUserQuestion` to collect any missing inputs in a single call:
 
 1. **App URL** — if not provided as argument or pre-filled from credentials/profile
 2. **Credentials** — username and password if not provided. Offer "No login required." Tell the user: "Credentials saved to `slh-reports/credentials.json` (gitignored)."
-3. **Viewport sizes** — multiSelect:
+3. **Viewport sizes** — **only ask if test depth is "Missions + viewports" or "Full evaluation"**. For "Missions only", default to Desktop (1440x900) and skip this question. multiSelect:
    - Mobile (375x812) — iPhone standard
    - Tablet (768x1024) — iPad portrait
    - Desktop (1440x900) — Standard desktop (Recommended)
    - Large Desktop (1920x1080) — Full HD
    - All viewports
 
-### 1e. Set Up Output Directory
+### 1f. Set Up Output Directory
 
 Extract hostname from URL (replace `:` with `-`, strip protocol/paths).
 
@@ -114,14 +167,14 @@ Build run directory: `./slh-reports/{YYYY-MM-DD_HH-MM}_{hostname}/`
 
 **IMPORTANT**: Resolve the run directory to an **absolute path** (not relative like `./slh-reports/...`). Mission agents run in subprocesses that may resolve relative paths differently. Always pass absolute paths when spawning agents.
 
-### 1f. Load App Knowledge
+### 1g. Load App Knowledge
 
 Use the Glob tool with pattern `slh-reports/app-knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `slh-reports/app-knowledge/*.md` and check if any filename contains the hostname. If found:
 1. Read the file with the Read tool
 2. Tell the user: "Loaded knowledge guide for {hostname} — {n} entries"
 3. Store the content — it will be passed to each mission agent
 
-### 1g. Create All Directories and Files Upfront
+### 1h. Create All Directories and Files Upfront
 
 Do ALL file creation in a **single Bash command** so the user only approves once. This lets the test run autonomously from here on:
 
@@ -168,7 +221,7 @@ Open a temporary browser session for orientation:
 - The persona description (from the profile)
 - The app knowledge content (if loaded, paste it in full)
 
-This write was pre-approved during Phase 1g setup. No additional permission prompt needed.
+This write was pre-approved during Phase 1h setup. No additional permission prompt needed.
 
 Tell the user what pages you discovered and which missions you're about to delegate.
 
@@ -191,7 +244,11 @@ When constructing the prompt below, you MUST:
 - Give each agent a unique session name: `mission-1`, `mission-2`, etc.
 - Do NOT leave any `{...}` placeholder text in the prompt
 
-Provide a detailed prompt that includes everything the agent needs:
+Provide a detailed prompt that includes everything the agent needs. **Adapt the prompt based on the selected test depth:**
+
+- **Missions only**: Omit step 5 (Viewport Sweep) and the style fingerprint collection from step 5.7 entirely. Remove the Style Fingerprints section from the results format. Set "Selected viewports" to "Desktop (1440x900) only" in the Context section.
+- **Missions + viewports**: Include step 5 (Viewport Sweep) but omit step 5.7 (style fingerprint collection). Remove the Style Fingerprints section from the results format.
+- **Full evaluation**: Include the entire prompt as written below.
 
 ```
 You are a mission agent evaluating a web app. You are testing as a specific persona and your job is to attempt ONE mission, find issues, and write structured results.
@@ -270,7 +327,7 @@ Actually attempt the mission task:
 - **Browser permission dialogs** (microphone, camera, location, notifications): Dismiss these — they block all interaction.
 - **Avoid voice/media input buttons**: Do NOT click microphone icons, voice input buttons, camera buttons, or screen-share buttons. Use text input fields instead.
 
-### 5. Viewport Sweep
+### 5. Viewport Sweep [INCLUDE FOR: Missions + viewports, Full evaluation — OMIT FOR: Missions only]
 At each significant page, test each viewport:
 1. Resize browser: `playwright-cli -s={session-name} resize {width} {height}`
 2. Wait 0.5s for reflow
@@ -299,7 +356,7 @@ Touch targets:
 }
 
 6. Test interactive elements on Desktop only (buttons respond, dropdowns visible)
-7. Collect style fingerprint on Desktop only (once per page):
+7. Collect style fingerprint on Desktop only (once per page) [INCLUDE FOR: Full evaluation only — OMIT FOR: Missions only, Missions + viewports]:
 
 () => {
   const getStyles = (el) => {
@@ -351,7 +408,7 @@ Use this EXACT format:
 - **Page**: {page-path}
 - **Viewport**: {viewport-name} ({width}x{height}) or "All viewports"
 - **Description**: {description through persona's lens}
-- **Screenshot**: screenshots/{filename}.png
+- **Screenshot**: {absolute-screenshots-dir}/{filename}.png
 - **Repro Steps**: {numbered steps, or "N/A" for Confusing/Inconsistent/Observation}
 - **Expected**: {what should happen, or "N/A"}
 - **Actual**: {what actually happens, or "N/A"}
@@ -368,7 +425,7 @@ Use this EXACT format:
 - **Mobile (375x812)**: PASS | FAIL (Finding: {title})
 {etc. for each viewport tested}
 
-## Style Fingerprints
+## Style Fingerprints [INCLUDE FOR: Full evaluation only — OMIT ENTIRE SECTION FOR: Missions only, Missions + viewports]
 {For each page where a fingerprint was collected:}
 
 ### {page-path}
@@ -377,18 +434,27 @@ Use this EXACT format:
 ### 8. Clean Up
 Close your browser session when all work is complete:
 `playwright-cli -s={session-name} close`
+
+### 9. Final Message
+After writing your results file and closing the browser, your LAST message must be a ONE-LINE summary:
+"Done: {Verdict}, {N} findings"
+Do NOT repeat your walkthrough, findings, or any detail in your final message — everything is already in the results file. A short final message is critical to avoid exhausting the leader's context window.
 ```
 
 ### Waiting for Missions
 
-After spawning all mission agents in parallel, wait for them all to complete. Use the `TaskOutput` tool (with `block: true`) for each agent to wait for its result.
+After spawning all mission agents in parallel, wait for them all to complete. Use the `TaskOutput` tool (with `block: true`) for each agent.
 
-As each completes, read its results file to get the verdict and finding count. Give a brief progress update to the user:
+**Do NOT read mission result files yourself.** Each agent's final message is a one-line summary (verdict + finding count). Parse that directly for progress updates:
 - "Mission {n}/{total} done: '{mission name}' — {verdict}, {finding count} findings"
+
+Keep your context lean — the report-assembly agent in Phase 6 will read the detailed files.
 
 ## Phase 5: Wrap Up
 
 After all mission agents have completed:
+
+**Skip this entire phase for "Missions only" and "Missions + viewports" depth.** Proceed directly to Phase 6. This phase only runs for **"Full evaluation"** depth.
 
 ### 5a. Curiosity Expansion
 
@@ -396,31 +462,25 @@ Spawn one more mission agent for curiosity expansion using a new session (`-s=cu
 
 ### 5b. Cross-Page Consistency
 
-Read all mission results files and extract the **Style Fingerprints** sections. Compare the JSON values across pages — you're just comparing data, not browsing. Use the methodology from the consistency-checks reference. Look for:
-- Button styling differences across pages
-- Typography inconsistencies (heading sizes, font weights)
-- Input/card/badge style variations
-- Color usage differences for the same semantic meaning
-
-Record any inconsistencies — these go directly into the report. This is data comparison, not page inspection, so the leader handles it.
+**Handled by the report-assembly agent in Phase 6.** The report agent reads all mission result files and has the context to compare style fingerprints across pages. Do not read the result files yourself for this.
 
 ## Phase 6: Report (Assembly Only)
 
-You are **assembling** the report from mission agent output, not writing original analysis. Read the report template reference for the format. Read ALL mission results files (`mission-*-results.md`) and the curiosity results. The mission agents did the hard work — your job is to number findings, stitch walkthroughs together, and add the structural sections (header, summary, matrix).
+You are **assembling** the report from mission agent output, not writing original analysis. Read the report template reference for the format. Read ALL mission results files (`mission-*-results.md`) and, if "Full evaluation" depth, the curiosity results. The mission agents did the hard work — your job is to number findings, stitch walkthroughs together, and add the structural sections (header, summary, matrix).
 
 ### 6a. Assign Finding Numbers
 
 Findings come from multiple agents with no sequential numbers. Assign global finding numbers now:
-1. Collect all findings from all mission results + curiosity results
+1. Collect all findings from all mission results (+ curiosity results if "Full evaluation" depth)
 2. Order by severity (High → Medium → Low), then by category (Broken → Confusing → Inconsistent → Rough → Observation)
 3. Number them sequentially: Finding #1, #2, #3...
-4. Add cross-page consistency findings at the end
+4. Add cross-page consistency findings at the end (only for "Full evaluation" depth)
 
 ### 6b. Evaluation Report — `{run-directory}/report.md`
 
 The primary deliverable. Narrative structure:
 
-1. **Header** — metadata table (URL, date, persona name + one-liner, missions tested, viewports)
+1. **Header** — metadata table (URL, date, persona name + one-liner, missions tested, viewports, **test depth**)
 2. **Executive Summary** — 2-4 sentences. Overall verdict: is this app usable for this persona? Biggest concern?
 3. **By the Numbers** — findings matrix (category x severity counts)
 4. **Mission Walkthroughs** — paste each mission's walkthrough narrative verbatim from the results files. Add global finding number references (e.g., "Finding #3") where the agent mentioned issues. Don't rewrite the walkthroughs — the mission agents wrote them in the persona's voice already.
@@ -430,10 +490,10 @@ The primary deliverable. Narrative structure:
    - Description (from mission agent — don't rewrite)
    - Screenshot
    - For Broken/Rough: reproduction steps + Playwright test (from mission agent)
-6. **Cross-Page Consistency** — from Phase 5b
+6. **Cross-Page Consistency** — from Phase 5b. **Omit this section for "Missions only" and "Missions + viewports" depth.**
 7. **What Works Well** — 2-4 positives. Pull these from mission walkthroughs — look for places where agents noted things worked smoothly or were easy to find.
 
-All screenshot paths use `screenshots/filename.png` format (relative to run directory).
+All screenshot paths in the report must use **absolute paths** so images render when the markdown is converted to PDF.
 
 ### 6c. Page Results Log — `{run-directory}/page-results.md`
 
@@ -442,11 +502,10 @@ Full coverage record assembled from all mission results: every page + viewport c
 ### 6d. Present Results
 
 After writing both files, tell the user:
-- The run directory path
 - Executive summary
 - Findings count by category and severity
 - Which missions succeeded/failed
-- Where to read the full report
+- **Where to find the report**: "You can find the full report at `{absolute-run-directory}/report.md`"
 
 ### 6e. Update Profile Session Count
 

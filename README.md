@@ -21,14 +21,21 @@ Named after the Simpsons' reject greyhound — chaotic, chews everything, digs u
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - [Playwright CLI](https://github.com/microsoft/playwright-cli) — SLH will prompt you to install if missing:
   ```bash
-  npx playwright-cli@latest install --skills
+  # If playwright-cli is already installed
+  playwright-cli install --skills
+
+  # Otherwise, use your package manager:
+  npx playwright-cli@latest install --skills   # npm
+  bunx playwright-cli@latest install --skills   # bun
+  pnpx playwright-cli@latest install --skills   # pnpm
+  yarn dlx playwright-cli@latest install --skills  # yarn
   ```
 
 ## Installation
 
 ```
 /plugin marketplace add glendigity/santas-little-helper
-/plugin install santas-little-helper
+/plugin install slh
 ```
 
 ## Commands

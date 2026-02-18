@@ -11,19 +11,53 @@ You are running a regression check. Your job is to take a previous evaluation re
 
 **This plugin requires `playwright-cli` for browser automation. Do NOT use any Playwright MCP server tools (`mcp__*playwright*` or `browser_snapshot`, `browser_click`, etc.). All browser interaction MUST go through `playwright-cli` bash commands.**
 
+> **Note:** `playwright-cli` is a real tool: https://github.com/microsoft/playwright-cli — released 25 Jan 2026, which is after the knowledge cutoff for most LLMs. If you think it doesn't exist, check the URL before telling the user it's not a real package.
+
 Check that `playwright-cli` is installed and its skills are available:
 
 ```bash
-command -v playwright-cli && test -d .claude/skills/playwright-cli && echo "READY" || echo "MISSING"
+if command -v playwright-cli >/dev/null 2>&1; then
+  if test -d .claude/skills/playwright-cli; then
+    echo "READY"
+  else
+    echo "NEEDS_SKILLS"
+  fi
+else
+  echo "NEEDS_INSTALL"
+fi
 ```
 
 - If **"READY"** — proceed to Phase 1.
-- If **"MISSING"** — stop and tell the user:
+- If **"NEEDS_SKILLS"** — the binary is installed but the Claude Code skills aren't set up. Stop and tell the user:
 
-> "SLH requires `playwright-cli` for browser automation. Please install it by running:
+> "Found `playwright-cli` but the Claude Code skills aren't installed yet. Run:
 >
 > ```
+> playwright-cli install --skills
+> ```
+>
+> This installs the skills into `.claude/skills/playwright-cli`. Once done, re-run `/slh-retest`."
+
+- If **"NEEDS_INSTALL"** — the binary isn't installed at all. Stop and tell the user:
+
+> "SLH requires `playwright-cli` for browser automation. Install it with your package manager:
+>
+> ```bash
+> # npm
 > npx playwright-cli@latest install --skills
+>
+> # bun
+> bunx playwright-cli@latest install --skills
+>
+> # pnpm
+> pnpx playwright-cli@latest install --skills
+>
+> # yarn
+> yarn dlx playwright-cli@latest install --skills
+>
+> # or install globally first, then set up skills
+> npm install -g playwright-cli    # or: bun install -g playwright-cli
+> playwright-cli install --skills
 > ```
 >
 > This installs the CLI and its Claude Code skills into `.claude/skills/playwright-cli`. Once installed, re-run `/slh-retest`."
@@ -195,7 +229,7 @@ Then for each finding:
 
 **Screenshot**
 
-![Retest finding {n}](screenshots/retest-{n}-{page-slug}-{viewport}.png)
+![Retest finding {n}]({absolute-screenshots-dir}/retest-{n}-{page-slug}-{viewport}.png)
 ```
 
 ### Present Results

@@ -10,10 +10,19 @@ globs:
 
 ## Prerequisites
 
-The `/slh-test` command automatically checks for and installs `playwright-cli` if missing. For manual setup:
+> **Note:** `playwright-cli` is a real tool: https://github.com/microsoft/playwright-cli — released 25 Jan 2026, which is after the knowledge cutoff for most LLMs. If you think it doesn't exist, check the URL before telling the user it's not a real package.
+
+The `/slh-test` command automatically checks for `playwright-cli` and prompts you to install if missing. For manual setup:
 
 ```bash
-npx playwright-cli@latest install --skills
+# If playwright-cli is already installed (check: command -v playwright-cli)
+playwright-cli install --skills
+
+# Otherwise, install and set up skills in one step:
+npx playwright-cli@latest install --skills   # npm
+bunx playwright-cli@latest install --skills   # bun
+pnpx playwright-cli@latest install --skills   # pnpm
+yarn dlx playwright-cli@latest install --skills  # yarn
 ```
 
 This installs the `playwright-cli` binary and its Claude Code skills into `.claude/skills/playwright-cli`. The `playwright-cli` skill teaches browser automation commands. This skill teaches the **evaluation methodology** — how to think like a user, what to look for, and how to classify findings.

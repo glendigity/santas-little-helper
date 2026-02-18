@@ -73,7 +73,7 @@ Reference specific findings by number: "This is where I hit Finding #3 — the f
 
 **Screenshot**
 
-![{alt-text}](screenshots/{filename}.png)
+![{alt-text}]({absolute-screenshots-dir}/{filename}.png)
 
 {For Broken and Rough findings only:}
 
@@ -158,7 +158,7 @@ Detailed record of every page + viewport tested.
 
 ### {Viewport Name} ({width}x{height}) — {PASS | FAIL (Finding #{n})}
 
-![{page-slug}-{viewport-name}](screenshots/{page-slug}-{viewport-name}-{width}x{height}.png)
+![{page-slug}-{viewport-name}]({absolute-screenshots-dir}/{page-slug}-{viewport-name}-{width}x{height}.png)
 
 {Brief note if FAIL — otherwise just the screenshot}
 
@@ -173,6 +173,12 @@ Detailed record of every page + viewport tested.
 - **Screenshots captured**: {count}
 - **Test duration**: Approximately {duration}
 ```
+
+## Screenshot Paths
+
+All screenshot references in `report.md` and `page-results.md` must use **absolute paths** so the images render correctly when the markdown is converted to PDF (e.g., with pandoc, mdpdf, or a VS Code extension). Use the full absolute path to the screenshots directory, not relative paths.
+
+Example: `![alt text](/absolute/path/to/slh-reports/2026-02-18_14-30_localhost-3000/screenshots/dashboard-mobile-375x812.png)`
 
 ## Screenshot Naming Convention
 
@@ -200,7 +206,7 @@ A corporate user coming from tools like Workday or BambooHR would expect a promi
 
 **Screenshot**
 
-![People page with no team filter](screenshots/people-desktop-1440x900.png)
+![People page with no team filter]({absolute-screenshots-dir}/people-desktop-1440x900.png)
 ```
 
 ```markdown
@@ -215,7 +221,7 @@ The "Invite Member" button extends past the right edge of the viewport. Only abo
 
 **Screenshot**
 
-![Invite button overflow on mobile](screenshots/settings-members-mobile-375x812.png)
+![Invite button overflow on mobile]({absolute-screenshots-dir}/settings-members-mobile-375x812.png)
 
 **Steps to Reproduce**
 

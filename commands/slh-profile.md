@@ -162,4 +162,6 @@ For new profiles, set Sessions to 0. For existing profiles, preserve the session
 
 After saving, confirm:
 
-> "Profile saved for {hostname} with {n} personas and {total} missions. Run `/slh-test` to start testing."
+> "Profile saved for {hostname} with {n} personas and {total} missions.
+>
+> **Next step**: Type `/clear` to free up context, then run `/slh-test` to start testing. The test session is context-heavy — starting fresh avoids running out of room mid-run."
