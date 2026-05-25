@@ -1,11 +1,13 @@
 ---
 description: "Run mission-based app evaluation. Explores the app as a target user, tests selected missions, checks visual/responsive behavior, and generates a narrative report."
-argument-hint: "[url] [username] [password]"
+argument-hint: "[url] [login-email] [password]"
 ---
 
 # SLH Test Command
 
 You are the **leader agent** coordinating an app evaluation. You are a **lightweight coordinator** — your job is to set up, delegate, and assemble. The **mission agents** do all the detailed exploration, reasoning, screenshot inspection, and finding classification. Do not duplicate their work.
+
+Do not present code analysis as browser testing. If a mission was not completed in the browser, mark it as `code-analysis-only` or `not-run` and make that explicit in the report.
 
 ## Leader vs Mission Agent Responsibilities
 
@@ -29,7 +31,7 @@ Leader Agent (you) — lightweight coordinator
 ├── Phase 1: Setup — collect inputs, load profile
 ├── Phase 2: Login — authenticate, save auth state
 ├── Phase 3: Orient — check & refine nav structure (.slh/orientation/)
-├── Phase 4: Delegate Missions — spawn ALL agents in parallel (each gets own browser session)
+├── Phase 4: Delegate Missions — spawn ALL agents in parallel when they can use playwright-cli
 │   ├── Mission Agent 1 (-s=mission-1) → writes mission-1-results.md
 │   ├── Mission Agent 2 (-s=mission-2) → writes mission-2-results.md
 │   └── Mission Agent N (-s=mission-N) → writes mission-N-results.md
@@ -65,7 +67,7 @@ fi
 
 > "Found `playwright-cli` but the Claude Code skills aren't installed yet. Run:
 >
-> ```
+> ```bash
 > playwright-cli install --skills
 > ```
 >
@@ -73,35 +75,22 @@ fi
 
 - If **"NEEDS_INSTALL"** — the binary isn't installed at all. Stop and tell the user:
 
-> "SLH requires `playwright-cli` for browser automation. Install it with your package manager:
+> "SLH requires `playwright-cli` for browser automation. Install it with:
 >
 > ```bash
-> # npm
-> npx playwright-cli@latest install --skills
->
-> # bun
-> bunx playwright-cli@latest install --skills
->
-> # pnpm
-> pnpx playwright-cli@latest install --skills
->
-> # yarn
-> yarn dlx playwright-cli@latest install --skills
->
-> # or install globally first, then set up skills
-> npm install -g playwright-cli    # or: bun install -g playwright-cli
+> npm install -g @playwright/cli@latest
 > playwright-cli install --skills
 > ```
 >
-> This installs the CLI and its Claude Code skills into `.claude/skills/playwright-cli`. Once installed, re-run `/slh-test`."
+> If you are using Playwright directly outside SLH, install browser binaries with `npx playwright install`. Once installed, re-run `/slh-test`."
 
-**Do not proceed without playwright-cli.** Do not fall back to MCP tools, Chrome DevTools, or any other browser automation method.
+**Do not proceed without playwright-cli.** Do not fall back to MCP tools, Chrome DevTools, code analysis, or any other browser automation method.
 
 ## Phase 1: Setup
 
 Parse any arguments provided: `$ARGUMENTS`
 
-The format is `[url] [username] [password]`. Any missing values must be collected.
+The format is `[url] [login-email] [password]`. Any missing values must be collected.
 
 ### 1a. Load Config
 
@@ -157,7 +146,7 @@ Check if saved credentials exist at `{reports_dir}/credentials.json`. If found, 
 Use `AskUserQuestion` to collect any missing inputs in a single call:
 
 1. **App URL** — if not provided as argument or pre-filled from credentials/profile
-2. **Credentials** — username and password if not provided. Offer "No login required." Tell the user: "Credentials saved to `{reports_dir}/credentials.json` (gitignored)."
+2. **Credentials** — login email and password if not provided. Ask: "What email address should I use to log in for the {persona name} user?" Offer "No login required." Tell the user: "Credentials saved to `{reports_dir}/credentials.json` (gitignored)."
 3. **Viewport sizes** — **only ask if test depth is "Missions + viewports" or "Full evaluation"**. For "Missions only", default to Desktop (1440x900) and skip this question. multiSelect:
    - Mobile (375x812) — iPhone standard
    - Tablet (768x1024) — iPad portrait
@@ -165,7 +154,17 @@ Use `AskUserQuestion` to collect any missing inputs in a single call:
    - Large Desktop (1920x1080) — Full HD
    - All viewports
 
-### 1g. Set Up Output Directory
+### 1g. Side-Effect Permissions
+
+Before browser work, ask whether this run should be **read-only** or may use **realistic clicks/writes**.
+
+Default to read-only plus reversible UI exploration. The agent may navigate, search, filter, open menus, and fill forms for inspection, but must stop before submit/save/send/invite/comment/delete actions unless the user opts in.
+
+If writes are allowed, ask which test accounts, users, organizations, projects, or records may be used. Explicitly gate anything that could notify real users, including email, chat, invites, comments, approvals, and workflow notifications. Prefer Glen/self-owned test accounts where possible.
+
+Store the selected side-effect policy and pass it to every mission agent.
+
+### 1h. Set Up Output Directory
 
 Extract hostname from URL (replace `:` with `-`, strip protocol/paths).
 
@@ -173,24 +172,24 @@ Build run directory: `{reports_dir}/{YYYY-MM-DD_HH-MM}_{hostname}/`
 
 **IMPORTANT**: Resolve the run directory to an **absolute path** (not relative). Mission agents run in subprocesses that may resolve relative paths differently. Always pass absolute paths when spawning agents.
 
-### 1h. Load App Knowledge
+### 1i. Load App Knowledge
 
 Use the Glob tool with pattern `.slh/knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `.slh/knowledge/*.md` and check if any filename contains the hostname. If found:
 1. Read the file with the Read tool
 2. Tell the user: "Loaded knowledge guide for {hostname} — {n} entries"
 3. Store the content — it will be passed to each mission agent
 
-### 1i. Create All Directories and Files Upfront
+### 1j. Create All Directories and Files Upfront
 
 Do ALL file creation in a **single Bash command** so the user only approves once. This lets the test run autonomously from here on:
 
 ```bash
-mkdir -p {run-directory}/screenshots .slh/orientation .slh/knowledge && echo '{"url":"{url}","username":"{username}","password":"{password}"}' > {reports_dir}/credentials.json
+mkdir -p {run-directory}/screenshots .slh/orientation .slh/knowledge && echo '{"url":"{url}","username":"{login-email}","password":"{password}"}' > {reports_dir}/credentials.json
 ```
 
 Then immediately write the orientation file (Phase 3) and the app knowledge reference — get all the Write approvals done before starting browser work.
 
-After this point, the test should run without further permission prompts (mission agents use `mode: "bypassPermissions"`).
+After this point, the test should run without further file permission prompts. Browser-dependent missions may only run in subagents that can actually use `playwright-cli`.
 
 ## Phase 2: Login & Save Auth State
 
@@ -199,7 +198,7 @@ Skip if "No login required" was selected.
 Use `playwright-cli` commands (see `playwright-cli --help` or the playwright-cli skill):
 1. Open the app URL: `playwright-cli open {url}`
 2. Take a snapshot to find form fields: `playwright-cli snapshot`
-3. Fill credentials into the username and password fields
+3. Fill credentials into the login email and password fields
 4. Submit the form
 5. Wait for the page to load after login
 6. Screenshot the result: `playwright-cli screenshot {absolute-run-directory}/screenshots/00-login-success.png`
@@ -255,11 +254,13 @@ Tell the user what pages you discovered and which missions you're about to deleg
 
 ## Phase 4: Delegate Missions (Parallel)
 
-Spawn **all** mission agents at once using the Task tool with `run_in_background: true`. Each agent gets its own named `playwright-cli` session so there are no browser conflicts.
+Spawn **all** mission agents at once using the Task tool with `run_in_background: true` when they can run `playwright-cli` commands and honor the side-effect policy. Each agent gets its own named `playwright-cli` session so there are no browser conflicts.
+
+Do not spawn browser-dependent missions into agents that cannot access browser automation or cannot approve/use required permissions. If subagents cannot meet that bar, run missions sequentially in the current agent.
 
 ### Spawning Mission Agents
 
-Use the Task tool with `subagent_type: "general-purpose"`, `run_in_background: true`, `mode: "bypassPermissions"`, and `model: "haiku"`.
+Use the Task tool with `subagent_type: "general-purpose"`, `run_in_background: true`, `mode: "bypassPermissions"`, and `model: "haiku"` only when `playwright-cli` access is available to those subagents.
 
 **Spawn all missions in a single message** — include multiple Task tool calls in one response so they launch in parallel.
 
@@ -267,8 +268,8 @@ Use the Task tool with `subagent_type: "general-purpose"`, `run_in_background: t
 
 When constructing the prompt below, you MUST:
 - Replace ALL `{placeholders}` with real values — the agent can't resolve them
-- Use the **absolute** run directory and screenshots paths (from Phase 1e)
-- Paste the real persona description, navigation structure, and app knowledge content
+- Use the **absolute** run directory and screenshots paths (from Phase 1h)
+- Paste the real persona description, navigation structure, app knowledge content, and side-effect policy
 - Give each agent a unique session name: `mission-1`, `mission-2`, etc.
 - Do NOT leave any `{...}` placeholder text in the prompt
 
@@ -286,7 +287,9 @@ CRITICAL RULES:
 2. Use `playwright-cli` bash commands for ALL browser interaction — snapshots, clicks, navigation, screenshots, resizing, JS evaluation.
 3. NEVER use Playwright MCP tools (browser_snapshot, browser_click, browser_evaluate, etc.). NEVER use any tool prefixed with `mcp__*playwright*`. Those are a DIFFERENT interface. You MUST use `playwright-cli` bash commands ONLY.
 4. NEVER use Bash/curl to call APIs — you are testing the UI, not the API.
-5. SCREENSHOTS: Always include the FULL ABSOLUTE PATH. Example: `playwright-cli -s={session-name} screenshot {screenshots_dir}/pagename-desktop-1440x900.png`
+5. NEVER write mission results from code analysis while presenting them as browser walkthroughs. If browser work cannot be completed, mark the mission `code-analysis-only` or `not-run`.
+6. Respect the side-effect policy. Stop before submit/save/send/invite/comment/delete actions unless the policy explicitly allows that class of action.
+7. SCREENSHOTS: Always include the FULL ABSOLUTE PATH. Example: `playwright-cli -s={session-name} screenshot {screenshots_dir}/pagename-desktop-1440x900.png`
 
 ## Browser Setup — Do This First
 
@@ -311,6 +314,7 @@ When done with ALL work, close your session:
 - Results file: {ABSOLUTE path to run dir}/mission-{n}-results.md
 - Auth state file: {ABSOLUTE path to run dir}/auth.json
 - Selected viewports: {viewport list with dimensions}
+- Side-effect policy: {read-only or approved realistic-write policy}
 
 ## Navigation Structure
 {paste the discovered pages/routes from orientation}
@@ -345,9 +349,10 @@ At each page you visit, stop and reason:
 Use `playwright-cli -s={session-name} snapshot` to read the accessibility tree (NOT `browser_snapshot` or any MCP tool).
 
 ### 4. Try to Use It
-Actually attempt the mission task:
+Actually attempt the mission task within the side-effect policy:
 - Click buttons, follow flows, interact with forms
-- Complete the mission if possible
+- Complete the mission if possible and permitted
+- Stop before any action that could write data or notify people unless it is explicitly allowed
 - Note where you get stuck, confused, or surprised
 
 **Dialogs and permissions:**
@@ -422,11 +427,16 @@ Use this EXACT format:
 
 # Mission {n}: {mission goal}
 
+## Execution
+- **Mode**: browser-tested | code-analysis-only | not-run
+- **Attempts**: {n}
+- **Side-effect policy**: {policy summary}
+
 ## Verdict
-{Accomplished | Partially Accomplished | Failed}
+{Accomplished | Partially Accomplished | Failed | Not Run}
 
 ## Walkthrough
-{First-person narrative as the persona. Describe the path you took, where you hesitated, what worked, where you got stuck. 2-4 paragraphs.}
+{First-person narrative as the persona. Describe the path you took, where you hesitated, what worked, where you got stuck. If this was not browser-tested, explain exactly why. 2-4 paragraphs.}
 
 ## Findings
 
@@ -437,6 +447,7 @@ Use this EXACT format:
 - **Viewport**: {viewport-name} ({width}x{height}) or "All viewports"
 - **Description**: {description through persona's lens}
 - **Screenshot**: {absolute-screenshots-dir}/{filename}.png
+- **Screenshot context**: {page, viewport, state, and why this screenshot matters}
 - **Repro Steps**: {numbered steps, or "N/A" for Confusing/Inconsistent/Observation}
 - **Expected**: {what should happen, or "N/A"}
 - **Actual**: {what actually happens, or "N/A"}
@@ -449,8 +460,8 @@ Use this EXACT format:
 
 ### {page-path}
 - **Context**: {why — e.g., "Navigated here looking for team member list"}
-- **Desktop (1440x900)**: PASS | FAIL (Finding: {title})
-- **Mobile (375x812)**: PASS | FAIL (Finding: {title})
+- **Desktop (1440x900)**: PASS | FAIL | NOT TESTED (Finding: {title})
+- **Mobile (375x812)**: PASS | FAIL | NOT TESTED (Finding: {title})
 {etc. for each viewport tested}
 
 ## Style Fingerprints [INCLUDE FOR: Full evaluation only — OMIT ENTIRE SECTION FOR: Missions only, Missions + viewports]
@@ -465,7 +476,7 @@ Close your browser session when all work is complete:
 
 ### 9. Final Message
 After writing your results file and closing the browser, your LAST message must be a ONE-LINE summary:
-"Done: {Verdict}, {N} findings"
+"Done: {Verdict}, {N} findings, mode={browser-tested|code-analysis-only|not-run}"
 Do NOT repeat your walkthrough, findings, or any detail in your final message — everything is already in the results file. A short final message is critical to avoid exhausting the leader's context window.
 ```
 
@@ -473,10 +484,11 @@ Do NOT repeat your walkthrough, findings, or any detail in your final message �
 
 After spawning all mission agents in parallel, wait for them all to complete. Use the `TaskOutput` tool (with `block: true`) for each agent.
 
-**Do NOT read mission result files yourself.** Each agent's final message is a one-line summary (verdict + finding count). Parse that directly for progress updates:
-- "Mission {n}/{total} done: '{mission name}' — {verdict}, {finding count} findings"
+If a mission agent fails because of browser/tool instability, auth expiry, transient loading failure, or an accidental permission stop, retry that mission once. Do not silently skip failed mission ranges.
 
-Keep your context lean — the report-assembly agent in Phase 6 will read the detailed files.
+Read only the top `Execution` section of each mission result file to verify that every selected mission has a result file and execution mode. If any mission is `code-analysis-only` or `not-run`, carry that status into the final report and do not claim full browser coverage.
+
+Keep your context lean — the report-assembly phase will read the detailed files.
 
 ## Phase 5: Wrap Up
 
@@ -486,7 +498,7 @@ After all mission agents have completed:
 
 ### 5a. Curiosity Expansion
 
-Spawn one more mission agent for curiosity expansion using a new session (`-s=curiosity`). Build a list of 1-2 pages that no mission agent visited (compare the Pages Visited sections in each results file against the full nav structure from orientation). Pass the list to the agent with the same prompt structure as other missions (including Browser Setup with auth state loading, session name, and the instruction to close the session when done). The agent writes `{run-directory}/curiosity-results.md` (same format, "Curiosity Expansion" as mission name, "N/A" for verdict).
+Spawn one more mission agent for curiosity expansion using a new session (`-s=curiosity`). Build a list of 1-2 pages that no mission agent visited (compare the Pages Visited sections in each results file against the full nav structure from orientation). Pass the list to the agent with the same prompt structure as other missions (including Browser Setup with auth state loading, session name, side-effect policy, and the instruction to close the session when done). The agent writes `{run-directory}/curiosity-results.md` (same format, "Curiosity Expansion" as mission name, "N/A" for verdict).
 
 ### 5b. Cross-Page Consistency
 
@@ -508,32 +520,34 @@ Findings come from multiple agents with no sequential numbers. Assign global fin
 
 The primary deliverable. Narrative structure:
 
-1. **Header** — metadata table (URL, date, persona name + one-liner, missions tested, viewports, **test depth**)
-2. **Executive Summary** — 2-4 sentences. Overall verdict: is this app usable for this persona? Biggest concern?
-3. **By the Numbers** — findings matrix (category x severity counts)
-4. **Mission Walkthroughs** — paste each mission's walkthrough narrative verbatim from the results files. Add global finding number references (e.g., "Finding #3") where the agent mentioned issues. Don't rewrite the walkthroughs — the mission agents wrote them in the persona's voice already.
-5. **All Findings** — paste each finding from the results files with its global number. Reformat to match the report template but preserve the mission agent's descriptions verbatim:
+1. **Header** — metadata table (URL, date, persona name + one-liner, missions tested, viewports, **test depth**, side-effect policy, and execution coverage)
+2. **Executive Summary** — 2-4 sentences. Overall verdict: is this app usable for this persona? Biggest concern? State whether every selected mission was browser-tested.
+3. **Coverage Limitations** — include only if any mission was `code-analysis-only` or `not-run`.
+4. **By the Numbers** — findings matrix (category x severity counts)
+5. **Mission Walkthroughs** — paste each mission's walkthrough narrative verbatim from the results files. Add global finding number references (e.g., "Finding #3") where the agent mentioned issues. Don't rewrite the walkthroughs — the mission agents wrote them in the persona's voice already.
+6. **All Findings** — paste each finding from the results files with its global number. Reformat to match the report template but preserve the mission agent's descriptions verbatim:
    - Finding number, title, category / severity
    - Page and viewport
    - Description (from mission agent — don't rewrite)
-   - Screenshot
+   - Screenshot plus screenshot context
    - For Broken/Rough: reproduction steps + Playwright test (from mission agent)
-6. **Cross-Page Consistency** — from Phase 5b. **Omit this section for "Missions only" and "Missions + viewports" depth.**
-7. **What Works Well** — 2-4 positives. Pull these from mission walkthroughs — look for places where agents noted things worked smoothly or were easy to find.
+7. **Cross-Page Consistency** — from Phase 5b. **Omit this section for "Missions only" and "Missions + viewports" depth.**
+8. **What Works Well** — 2-4 positives. Pull these from mission walkthroughs — look for places where agents noted things worked smoothly or were easy to find.
 
 All screenshot paths in the report must use **absolute paths** so images render when the markdown is converted to PDF.
 
 ### 6c. Page Results Log — `{run-directory}/page-results.md`
 
-Full coverage record assembled from all mission results: every page + viewport combination tested with PASS/FAIL and screenshot references.
+Full coverage record assembled from all mission results: every page + viewport combination tested with PASS/FAIL/NOT TESTED and screenshot references.
 
 ### 6d. Present Results
 
 After writing both files, tell the user:
 - Executive summary
 - Findings count by category and severity
-- Which missions succeeded/failed
-- **Where to find the report**: "You can find the full report at `{absolute-run-directory}/report.md`"
+- Which missions succeeded/failed/not-run
+- Any coverage limitations
+- **Where to find the report**: "You can find the report in `{absolute-run-directory}/report.md`"
 
 ### 6e. Update Profile Session Count
 
@@ -559,8 +573,9 @@ If the user wants profile changes, read and update the profile file conversation
 
 ## Error Handling
 
-- If a mission agent fails or returns an error, log it and tell the user — other agents continue independently
-- If a page fails to load inside a mission agent, the agent should screenshot the error, record a Broken finding, and continue
-- If auth state fails to load in a mission agent, the agent should report this and attempt to continue (some pages may work without auth)
-- Never stop the entire test because of a single mission failure
-- After all agents finish, run `playwright-cli kill-all` to clean up any leftover browser processes
+- If a mission agent fails or returns an error, log it, retry once if the failure may be transient, and tell the user.
+- If a page fails to load inside a mission agent, the agent should screenshot the error, record a Broken finding, and continue.
+- If auth state fails to load in a mission agent, the agent should report this and attempt to continue (some pages may work without auth).
+- Never stop the entire test because of a single mission failure.
+- Do not assemble a partial report that implies full browser coverage.
+- After all agents finish, run `playwright-cli kill-all` to clean up any leftover browser processes.

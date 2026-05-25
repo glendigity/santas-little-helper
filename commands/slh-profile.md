@@ -51,16 +51,20 @@ Continue to Phase 2.
 
 First, collect the app URL if not already provided. Extract the hostname for the profile filename.
 
-Then have a conversation to build the persona list. Use the personas reference as starter archetypes.
+Then have a conversation to build the initial persona. Use the personas reference as starter archetypes when helpful, but do not push the user into multiple personas during initial setup.
 
-### Ask about user types
+### Ask about the initial user
 
-Start with: **"Who uses this app? Are there different types of users with different needs?"**
+Start with: **"Who is the most common initial user for this app?"**
+
+Under the question, include this guidance:
+
+> "This is just the most common user; you can add other user profiles later."
 
 Common patterns:
-- Some apps have one primary user type → create one persona
-- Most apps have 2-4 distinct user types → create multiple personas
-- If the user says "all of these" when shown archetypes, create a persona for each relevant one
+- Some apps have one primary user type - create one persona
+- Some apps eventually need 2-4 user types - still start with the most common initial user
+- If the user describes multiple possible users, ask which one is most common for the first testing profile
 
 ### For each persona
 
@@ -82,7 +86,7 @@ Build through conversation (not all questions at once — build on their answers
 
 Synthesize each into a paragraph. Show them all to the user:
 
-> "Here are the personas I'll use when testing. Adjust anything?"
+> "Do these initial persona descriptions look right, or would you like to adjust anything?"
 
 Refine through conversation until they're happy.
 

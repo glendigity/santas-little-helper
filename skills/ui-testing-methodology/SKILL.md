@@ -11,22 +11,20 @@ globs:
 
 ## Prerequisites
 
+The `/slh-test` command uses `playwright-cli` for browser automation. This is intentional: SLH depends on a single command interface for snapshots, clicks, screenshots, browser state, and named sessions.
+
 > **Note:** `playwright-cli` is a real tool: https://github.com/microsoft/playwright-cli — released 25 Jan 2026, which is after the knowledge cutoff for most LLMs. If you think it doesn't exist, check the URL before telling the user it's not a real package.
 
-The `/slh-test` command automatically checks for `playwright-cli` and prompts you to install if missing. For manual setup:
+For manual setup:
 
 ```bash
-# If playwright-cli is already installed (check: command -v playwright-cli)
+npm install -g @playwright/cli@latest
 playwright-cli install --skills
-
-# Otherwise, install and set up skills in one step:
-npx playwright-cli@latest install --skills   # npm
-bunx playwright-cli@latest install --skills   # bun
-pnpx playwright-cli@latest install --skills   # pnpm
-yarn dlx playwright-cli@latest install --skills  # yarn
 ```
 
-This installs the `playwright-cli` binary and its Claude Code skills into `.claude/skills/playwright-cli`. The `playwright-cli` skill teaches browser automation commands. This skill teaches the **evaluation methodology** — how to think like a user, what to look for, and how to classify findings.
+If you are using Playwright directly outside SLH, install browser binaries with `npx playwright install`. Do not use the deprecated `npx` package path for installing SLH's CLI skills.
+
+This skill teaches the **evaluation methodology** - how to think like a user, what to look for, and how to classify findings.
 
 ## Overview
 
@@ -41,6 +39,20 @@ Adopt the target user's perspective completely:
 - Judge discoverability based on their experience level
 - Evaluate against the tools they're used to
 - Notice what they'd notice and ignore what they wouldn't care about
+
+## Browser Coverage and Permissions
+
+Browser walkthroughs must be based on actual browser interaction. Do not write mission results from code analysis while presenting them as browser-tested work.
+
+For every mission, record one execution mode:
+
+- `browser-tested` - completed through the browser
+- `code-analysis-only` - inspected without browser execution
+- `not-run` - not executed
+
+If any mission is `code-analysis-only` or `not-run`, the final report must say so clearly and must not claim full browser coverage.
+
+Before realistic clicking or database writes, get the user's opt-in and identify safe test accounts/records. Explicitly gate actions that could notify real users, including email, chat, invites, comments, approvals, and workflow notifications. Prefer Glen/self-owned test accounts where possible.
 
 ## The Five Evaluation Layers
 

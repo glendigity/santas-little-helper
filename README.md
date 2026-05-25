@@ -21,15 +21,14 @@ Named after the Simpsons' reject greyhound — chaotic, chews everything, digs u
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - [Playwright CLI](https://github.com/microsoft/playwright-cli) — SLH will prompt you to install if missing:
   ```bash
-  # If playwright-cli is already installed
-  playwright-cli install --skills
+  # Install the CLI
+  npm install -g @playwright/cli@latest
 
-  # Otherwise, use your package manager:
-  npx playwright-cli@latest install --skills   # npm
-  bunx playwright-cli@latest install --skills   # bun
-  pnpx playwright-cli@latest install --skills   # pnpm
-  yarn dlx playwright-cli@latest install --skills  # yarn
+  # Install the agent skills
+  playwright-cli install --skills
   ```
+
+  If you are using Playwright directly outside SLH, install browser binaries with `npx playwright install`.
 
 ## Installation
 
@@ -43,8 +42,8 @@ Named after the Simpsons' reject greyhound — chaotic, chews everything, digs u
 | Command | Description |
 |---------|-------------|
 | `/slh-profile [url]` | Define user personas and their mission lists |
-| `/slh-test [url] [user] [pass]` | Run a full evaluation session |
-| `/slh-retest [url] [user] [pass]` | Re-test previous findings to verify fixes |
+| `/slh-test [url] [login-email] [password]` | Run a full evaluation session |
+| `/slh-retest [url] [login-email] [password]` | Re-test previous findings to verify fixes |
 
 ## Finding Categories
 

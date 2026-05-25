@@ -17,10 +17,17 @@ This is what the user reads. Narrative structure with mission walkthroughs and c
 | **Missions Tested** | {count} of {total} |
 | **Viewports** | {viewport-list} |
 | **Pages Visited** | {count} |
+| **Test Depth** | {Missions only | Missions + viewports | Full evaluation} |
+| **Side-effect Policy** | {read-only / realistic writes allowed with approved accounts / specific notification approvals} |
+| **Execution Coverage** | {n browser-tested, n code-analysis-only, n not-run} |
 
 ## Executive Summary
 
-{2-4 sentences. Overall verdict: is this app usable for the target user? What's the biggest concern? What's the strongest positive? End with a clear recommendation.}
+{2-4 sentences. Overall verdict: is this app usable for the target user? What's the biggest concern? What's the strongest positive? State whether all selected missions were browser-tested. End with a clear recommendation.}
+
+## Coverage Limitations
+
+{Include this section if any selected mission is `code-analysis-only` or `not-run`. Say exactly which missions were not fully browser-tested and why. Omit this section only when every selected mission is `browser-tested`.}
 
 ## By the Numbers
 
@@ -40,6 +47,8 @@ This is what the user reads. Narrative structure with mission walkthroughs and c
 ### Mission {n}: {Mission goal from profile}
 
 **Verdict: {Accomplished | Partially Accomplished | Failed}**
+
+**Execution mode:** {browser-tested | code-analysis-only | not-run}
 
 {Narrative walkthrough written in first person as the target user:
 
@@ -72,6 +81,8 @@ Reference specific findings by number: "This is where I hit Finding #3 — the f
 {Description through the target user's lens. "I couldn't figure out how to..." not "The affordance for the action lacks sufficient visual prominence." Be specific about what's wrong and why it matters.}
 
 **Screenshot**
+
+{One sentence of screenshot context: page, viewport, visible state, and why the screenshot matters.}
 
 ![{alt-text}]({absolute-screenshots-dir}/{filename}.png)
 
@@ -158,6 +169,8 @@ Detailed record of every page + viewport tested.
 
 ### {Viewport Name} ({width}x{height}) — {PASS | FAIL (Finding #{n})}
 
+{One sentence of screenshot context: page, viewport, visible state, and what this image verifies.}
+
 ![{page-slug}-{viewport-name}]({absolute-screenshots-dir}/{page-slug}-{viewport-name}-{width}x{height}.png)
 
 {Brief note if FAIL — otherwise just the screenshot}
@@ -177,6 +190,8 @@ Detailed record of every page + viewport tested.
 ## Screenshot Paths
 
 All screenshot references in `report.md` and `page-results.md` must use **absolute paths** so the images render correctly when the markdown is converted to PDF (e.g., with pandoc, mdpdf, or a VS Code extension). Use the full absolute path to the screenshots directory, not relative paths.
+
+Every embedded screenshot must have nearby text context describing the page, viewport, visible state, and why the image matters. This keeps the PDF usable as a standalone artifact.
 
 Example: `![alt text](/absolute/path/to/slh-reports/2026-02-18_14-30_localhost-3000/screenshots/dashboard-mobile-375x812.png)`
 

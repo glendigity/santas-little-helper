@@ -1,6 +1,6 @@
 ---
 description: "Re-test previously reported findings to verify which are fixed, still present, or changed. Works with both old-format (issues/content questions) and new-format (5-category findings) reports."
-argument-hint: "[url] [username] [password]"
+argument-hint: "[url] [login-email] [password]"
 ---
 
 # SLH Retest Command
@@ -32,7 +32,7 @@ fi
 
 > "Found `playwright-cli` but the Claude Code skills aren't installed yet. Run:
 >
-> ```
+> ```bash
 > playwright-cli install --skills
 > ```
 >
@@ -40,27 +40,16 @@ fi
 
 - If **"NEEDS_INSTALL"** — the binary isn't installed at all. Stop and tell the user:
 
-> "SLH requires `playwright-cli` for browser automation. Install it with your package manager:
+> "SLH requires `playwright-cli` for browser automation. Install it with:
 >
 > ```bash
-> # npm
-> npx playwright-cli@latest install --skills
->
-> # bun
-> bunx playwright-cli@latest install --skills
->
-> # pnpm
-> pnpx playwright-cli@latest install --skills
->
-> # yarn
-> yarn dlx playwright-cli@latest install --skills
->
-> # or install globally first, then set up skills
-> npm install -g playwright-cli    # or: bun install -g playwright-cli
+> npm install -g @playwright/cli@latest
 > playwright-cli install --skills
 > ```
 >
 > This installs the CLI and its Claude Code skills into `.claude/skills/playwright-cli`. Once installed, re-run `/slh-retest`."
+
+If the user is using Playwright directly outside SLH, the browser install command is `npx playwright install`. Do not recommend the deprecated `npx` package path for installing SLH's CLI skills.
 
 **Do not proceed without playwright-cli.** Do not fall back to MCP tools, Chrome DevTools, or any other browser automation method.
 
@@ -68,7 +57,7 @@ fi
 
 Parse any arguments provided: `$ARGUMENTS`
 
-The format is `[url] [username] [password]`. Any missing values must be collected.
+The format is `[url] [login-email] [password]`. Any missing values must be collected.
 
 ### 1a. Load Config
 
@@ -84,7 +73,7 @@ Present the user with the available reports using `AskUserQuestion`:
 
 1. **Report to re-test** — list the most recent 4 run directories with their date and hostname. Show the finding/issue count from each report's summary if possible.
 2. **App URL** — pre-fill from saved credentials or the report header if available, but let the user override.
-3. **Credentials** — pre-fill from saved credentials if available. Otherwise collect username and password. Offer "No login required." If collecting new credentials, tell the user: "Credentials saved to `{reports_dir}/credentials.json` (gitignored)."
+3. **Credentials** — pre-fill from saved credentials if available. Otherwise ask: "What email address should I use to log in for this retest user?" and collect the password. Offer "No login required." If collecting new credentials, tell the user: "Credentials saved to `{reports_dir}/credentials.json` (gitignored)."
 
 If new credentials were provided, update `{reports_dir}/credentials.json`.
 
@@ -117,6 +106,15 @@ Create a `screenshots/` subdirectory.
 ### 1e. Load App Knowledge
 
 Use the Glob tool with pattern `.slh/knowledge/{hostname}.md` (substituting the actual hostname). If no match, also try `.slh/knowledge/*.md` and check filenames. If found, read it with the Read tool.
+
+### 1f. Side-Effect Permissions
+
+Before reproducing findings, establish the interaction policy for this retest:
+
+1. Ask whether the user wants **read-only retesting** or **realistic interaction with writes**.
+2. If writes are allowed, ask which test accounts, users, organizations, projects, or records may be used.
+3. Explicitly gate actions that could affect or notify real people. Do not send emails, chat messages, invites, comments, workflow notifications, approvals, purchases, payments, or destructive changes unless the user explicitly approves that exact class of action for this run.
+4. Prefer Glen/self-owned test accounts and records when available.
 
 ## Phase 2: Login
 
@@ -233,6 +231,8 @@ Then for each finding:
 
 **Screenshot**
 
+{One sentence of screenshot context: page, viewport, visible state, and why this screenshot matters.}
+
 ![Retest finding {n}]({absolute-screenshots-dir}/retest-{n}-{page-slug}-{viewport}.png)
 ```
 
@@ -240,6 +240,7 @@ Then for each finding:
 
 After writing the report, tell the user:
 - The run directory path
+- Exact report location using this wording: "You can find the report in `{absolute-run-directory}/retest-report.md`"
 - How many findings are FIXED vs STILL PRESENT vs CHANGED
 - Highlight any STILL PRESENT items by severity (High first)
 - If all findings are fixed, celebrate briefly
